@@ -9,13 +9,18 @@ public class PlayerController : MonoBehaviour
     public float pulseForce = 6;
     public float jumpForce = 5;
     public float pulseCoolDown = 5;
+    //public float powerUpDuration = 5;
     public float gravityModifier = 9;
 
     Rigidbody m_Rigidbody;
     GameObject m_FocalPoint;
+    public GameObject powerUpIndicator;
+    public ParticleSystem powerHitParticleSystem;
     Camera m_Camera;
     bool onGround = false;
-    float pulseTimer = 0;
+    bool canPulse = true;
+    bool hasPowerUp = false;
+    float powerUpStrength;
     Vector2 inputAxis = Vector2.zero;
 
     // Start is called before the first frame update
@@ -25,6 +30,10 @@ public class PlayerController : MonoBehaviour
         m_Rigidbody = GetComponent<Rigidbody>();
         m_FocalPoint = GameObject.Find("FocalPoint");
         m_Camera = GameObject.Find("Main Camera").GetComponent<Camera>();
+        if (powerUpIndicator != null) {
+            powerUpIndicator.SetActive(false);
+        }
+        
     }
 
     // Update is called once per frame
@@ -42,19 +51,48 @@ public class PlayerController : MonoBehaviour
         {
             Jump();
         }
-        // set pulse timer
-        pulseTimer = pulseTimer - Time.deltaTime < 0 ? 0 : pulseTimer - Time.deltaTime;
         // apply gravity mod
         m_Rigidbody.AddForce(Vector3.down * gravityModifier, ForceMode.Acceleration);
+        UpdatePowerUpIndicator();
     }
     // get collision events
-    private void OnCollisionEnter(Collision collision)
+    void OnCollisionEnter(Collision collision)
     {
         // detect when the player collides with ground objects
         if (collision.gameObject.CompareTag("Ground"))
         {
             // set on ground to true
             onGround = true;
+        } 
+        // if we collide with an enemy while we have a power up
+        else if (collision.gameObject.CompareTag("Enemy") && hasPowerUp)
+        {
+            Debug.Log("PowerHit");
+            // get enemy rigidbody
+            Rigidbody otherRB = collision.gameObject.GetComponent<Rigidbody>();
+            powerHitParticleSystem.transform.position = collision.GetContact(0).point;
+            powerHitParticleSystem.Play();
+            // calculate force vector
+            Vector3 force = (collision.gameObject.transform.position - transform.position).normalized;
+            //apply force
+            otherRB.AddForce(force* powerUpStrength, ForceMode.Impulse);
+        }
+    }
+    // get trigger collisions
+    private void OnTriggerEnter(Collider other)
+    {
+        // check if we hit a power up
+        if (other.gameObject.CompareTag("PowerUp"))
+        {
+            // get the power up
+            PowerUp pu = other.gameObject.GetComponent<PowerUp>();
+            // apply power up
+            hasPowerUp = true;
+            powerUpStrength = pu.strength;
+            if (powerUpIndicator != null) powerUpIndicator.SetActive(true);
+            StartCoroutine(ResetPowerUp_AfterTime(pu.duration));
+            // destroy power up
+            Destroy(other.gameObject);
         }
     }
     void GetInput()
@@ -72,13 +110,14 @@ public class PlayerController : MonoBehaviour
     void Pulse ()
     {
         // check the cooldown on this ability is not active
-        if (pulseTimer <= 0)
+        if (canPulse)
         {
             Debug.Log("Pulse");
             //apply pulse force
             m_Rigidbody.AddForce(m_FocalPoint.transform.forward * pulseForce, ForceMode.Impulse);
-
-            pulseTimer = pulseCoolDown;
+            // set pulse timer
+            canPulse = false;
+            StartCoroutine(SetPulse_AfterTime(true, pulseCoolDown));
         }
     }
     // make the ball jump
@@ -105,5 +144,32 @@ public class PlayerController : MonoBehaviour
         Vector3 move = forward * inputAxis.y + right * inputAxis.x;
         move.y = 0; // zero out y
         return move;
+    }
+    void UpdatePowerUpIndicator()
+    {
+        // rotates the power up at speed variable to power up strength
+        Vector3 currentRotation = powerUpIndicator.transform.rotation.eulerAngles;
+        powerUpIndicator.transform.rotation = Quaternion.Euler(0.0f, currentRotation.y, gameObject.transform.rotation.z * -1.0f);
+
+        // rotate the power up at power up strength rate
+        powerUpIndicator.transform.Rotate(Vector3.up * Time.deltaTime * powerUpStrength * 50);
+    }
+    // pulse cooldown timer
+    IEnumerator SetPulse_AfterTime (bool value, float time)
+    {
+        // wait for cooldown
+        yield return new WaitForSeconds(time);
+        // reset can pulse
+        canPulse = value;
+    }
+    // powerUp cooldown timer
+    IEnumerator ResetPowerUp_AfterTime(float time)
+    {
+        // wait for cooldown
+        yield return new WaitForSeconds(time);
+        // reset can pulse
+        hasPowerUp = false;
+        powerUpStrength = 0;
+        if (powerUpIndicator != null) powerUpIndicator.SetActive(false);
     }
 }
