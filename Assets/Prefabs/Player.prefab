@@ -4746,12 +4746,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d054a9720fa35a488befbe71aed97a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 60
+  speed: 500
   cameraSpeed: 100
-  pulseForce: 6
+  pulseForce: 10
   jumpForce: 7
   pulseCoolDown: 5
   gravityModifier: 9
+  pulseSlider: {fileID: 0}
   powerUpIndicator: {fileID: 6990960695238143119}
   powerHitParticleSystem: {fileID: 1085720391}
 --- !u!33 &6990378949882454016

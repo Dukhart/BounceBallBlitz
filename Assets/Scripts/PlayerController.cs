@@ -1,21 +1,25 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
-public class PlayerController : MonoBehaviour
+using UnityEngine.UI;
+public class PlayerController : MonoBehaviour, IKillable
 {
-    public float speed = 60;
-    public float cameraSpeed = 100;
-    public float pulseForce = 6;
-    public float jumpForce = 5;
-    public float pulseCoolDown = 5;
-    //public float powerUpDuration = 5;
-    public float gravityModifier = 9;
+    public delegate void PlayerDeath(int playerNumber);
+    public static event PlayerDeath OnPlayerDeath;
 
+    [SerializeField] float speed = 60;
+    [SerializeField] float cameraSpeed = 100;
+    [SerializeField] float pulseForce = 6;
+    [SerializeField] float jumpForce = 5;
+    [SerializeField] float pulseCoolDown = 5;
+    float pulseTimer = 0;
+    Coroutine pulseRoutine;
+    [SerializeField] float gravityModifier = 9;
+    [SerializeField] Slider pulseSlider;
     Rigidbody m_Rigidbody;
     GameObject m_FocalPoint;
-    public GameObject powerUpIndicator;
-    public ParticleSystem powerHitParticleSystem;
+    [SerializeField] GameObject powerUpIndicator;
+    [SerializeField] ParticleSystem powerHitParticleSystem;
     Camera m_Camera;
     bool onGround = false;
     bool canPulse = true;
@@ -33,11 +37,18 @@ public class PlayerController : MonoBehaviour
         if (powerUpIndicator != null) {
             powerUpIndicator.SetActive(false);
         }
-        
+        pulseSlider.value = 1;
     }
-
+    private void Update()
+    {
+        // die when falling below level
+        if (transform.position.y <= -10)
+        {
+            Die();
+        }
+    }
     // Update is called once per frame
-    void Update()
+    void FixedUpdate()
     {
         // Get input
         GetInput();
@@ -100,7 +111,6 @@ public class PlayerController : MonoBehaviour
         // Get Input Axis
         inputAxis.x = Input.GetAxis("Horizontal");
         inputAxis.y = Input.GetAxis("Vertical");
-
         // rotate the camera
         m_FocalPoint.transform.Rotate(Vector3.up, inputAxis.x * cameraSpeed * Time.deltaTime);
         // apply movement
@@ -110,15 +120,13 @@ public class PlayerController : MonoBehaviour
     void Pulse ()
     {
         // check the cooldown on this ability is not active
-        if (canPulse)
-        {
-            Debug.Log("Pulse");
-            //apply pulse force
-            m_Rigidbody.AddForce(m_FocalPoint.transform.forward * pulseForce, ForceMode.Impulse);
-            // set pulse timer
-            canPulse = false;
-            StartCoroutine(SetPulse_AfterTime(true, pulseCoolDown));
-        }
+        Debug.Log("Pulse");
+        if (!canPulse) StopCoroutine(pulseRoutine);
+        canPulse = false;
+        //apply pulse force
+        m_Rigidbody.AddForce(m_FocalPoint.transform.forward * pulseForce * pulseSlider.value, ForceMode.Impulse);
+        //StartCoroutine(SetPulse_AfterTime(true, pulseCoolDown));
+        pulseRoutine = StartCoroutine(PulseCooldown());
     }
     // make the ball jump
     void Jump()
@@ -162,6 +170,18 @@ public class PlayerController : MonoBehaviour
         // reset can pulse
         canPulse = value;
     }
+    IEnumerator PulseCooldown()
+    {
+        pulseTimer = 0;
+        while (pulseTimer < pulseCoolDown)
+        {
+            pulseTimer += Time.deltaTime;
+            pulseSlider.value = pulseTimer / pulseCoolDown;
+            yield return null;
+        }
+        pulseSlider.value = 1;
+        canPulse = true;
+    }
     // powerUp cooldown timer
     IEnumerator ResetPowerUp_AfterTime(float time)
     {
@@ -171,5 +191,14 @@ public class PlayerController : MonoBehaviour
         hasPowerUp = false;
         powerUpStrength = 0;
         if (powerUpIndicator != null) powerUpIndicator.SetActive(false);
+    }
+
+    public void Die()
+    {
+        StopAllCoroutines();
+        if (OnPlayerDeath != null)
+        {
+            OnPlayerDeath(0);
+        }
     }
 }

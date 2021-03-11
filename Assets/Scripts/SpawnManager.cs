@@ -1,16 +1,18 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using TMPro;
 public class SpawnManager : MonoBehaviour
 {
-    public GameObject[] enemyObjects;
-    public GameObject[] powerUpObjects;
-    public float spawnRange = 9;
-    public int waveIncrement = 1;
-    public int powerUpSpawnMin = 1;
-    public int powerUpSpawnMax = 3;
+    [SerializeField] GameObject[] enemyObjects;
+    [SerializeField] GameObject[] powerUpObjects;
+    [SerializeField] float spawnRange = 9;
+    [SerializeField] int waveIncrement = 1;
+    [SerializeField] int powerUpSpawnMin = 1;
+    [SerializeField] int powerUpSpawnMax = 3;
+    [SerializeField] TextMeshProUGUI waveNumberText;
     int waveNumber;
+    bool isGameOver = false;
     List<GameObject> spawnedObjects = new List<GameObject>();
     // Start is called before the first frame update
     void Start()
@@ -19,7 +21,14 @@ public class SpawnManager : MonoBehaviour
         spawnedObjects.Clear();
         SpawnWave(waveNumber);
     }
-
+    private void OnEnable()
+    {
+        GameManager.OnGameOver += OnGameOver;
+    }
+    private void OnDisable()
+    {
+        GameManager.OnGameOver -= OnGameOver;
+    }
     // spawns the object at index
     void SpawnObject(int index = 0)
     {
@@ -61,6 +70,8 @@ public class SpawnManager : MonoBehaviour
     // spawns a wave equal to number in size of objects at index;
     void SpawnWave (int number, int index = 0)
     {
+        if (isGameOver) return;
+        waveNumberText.text = "Wave " + waveNumber;
         // loop through spawning
         for (int i = 0; i < number; ++i)
         {
@@ -84,8 +95,13 @@ public class SpawnManager : MonoBehaviour
         if (spawnedObjects.Count <= 0)
         {
             //spawn the next wave
-            waveNumber += waveIncrement;
-            SpawnWave(waveNumber);
+            ++waveNumber;
+            SpawnWave(waveNumber * waveIncrement);
         }
+    }
+    void OnGameOver ()
+    {
+        StopAllCoroutines();
+        isGameOver = true;
     }
 }
